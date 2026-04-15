@@ -78,6 +78,8 @@ async fn run_app<B: ratatui::backend::Backend>(
             let hist = worker.history.lock().await;
             app.history = hist.clone();
         }
+        app.active_connector = worker.active_connector_name().await;
+        app.available_connectors = worker.registry.names();
         if app.selected_active >= app.active.len() && !app.active.is_empty() {
             app.selected_active = app.active.len() - 1;
         }
@@ -128,6 +130,18 @@ async fn handle_normal(app: &mut App, key: KeyEvent, worker: &worker::WorkerHand
                 let id = j.id;
                 let _ = worker.cancel_job(id).await;
                 app.push_log(format!("cancel signal → {}", &id.to_string()[..8]));
+            }
+        }
+        KeyCode::Char('c') => {
+            // 다음 커넥터로 순환
+            let list = &app.available_connectors;
+            if !list.is_empty() {
+                let cur = list.iter().position(|n| *n == app.active_connector).unwrap_or(0);
+                let next = (cur + 1) % list.len();
+                let name = list[next].clone();
+                if worker.set_connector(&name).await {
+                    app.push_log(format!("connector switched → {name}"));
+                }
             }
         }
         KeyCode::Tab => {

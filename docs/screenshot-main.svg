@@ -557,7 +557,7 @@
 <rect x="396" y="162" width="9" height="18" fill="#5c6370"/>
 <rect x="405" y="162" width="9" height="18" fill="#5c6370"/>
 <rect x="414" y="162" width="9" height="18" fill="#5c6370"/>
-<text x="0" y="14" fill="#1e1e1e" xml:space="preserve"> translate-dashboard │ endpoints=4  active=2  queue=1  history=3                                                        </text>
+<text x="0" y="14" fill="#1e1e1e" xml:space="preserve"> translate-dashboard │ connector=[gemma]  endpoints=4  active=2  queue=1  history=3                                     </text>
 <text x="0" y="32" fill="#d4d4d4" xml:space="preserve">╭ GPU ─────────────────────────────────────────╮╭ 실 행 /대 기  (3) ───────────────────────────────────────────────────────╮</text>
 <text x="0" y="50" fill="#d4d4d4" xml:space="preserve">│</text>
 <text x="9" y="50" fill="#e5c07b" xml:space="preserve">GPU0 </text>
@@ -653,6 +653,6 @@
 <text x="0" y="572" fill="#d4d4d4" xml:space="preserve">│                                              ││                                                                      │</text>
 <text x="0" y="590" fill="#d4d4d4" xml:space="preserve">╰──────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────╯</text>
 <text x="0" y="608" fill="#d4d4d4" xml:space="preserve">╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮</text>
-<text x="0" y="626" fill="#d4d4d4" xml:space="preserve">│ [n] new  [?] help  [↑↓] select  [x] cancel  [q] quit                                                                 │</text>
+<text x="0" y="626" fill="#d4d4d4" xml:space="preserve">│ [n] new  [c] switch connector  [?] help  [↑↓] select  [x] cancel  [q] quit                                           │</text>
 <text x="0" y="644" fill="#d4d4d4" xml:space="preserve">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
 </svg>

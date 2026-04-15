@@ -32,7 +32,8 @@ pub fn draw(f: &mut Frame, app: &App) {
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
     let title = format!(
-        " translate-dashboard │ endpoints={}  active={}  queue={}  history={} ",
+        " translate-dashboard │ connector=[{}]  endpoints={}  active={}  queue={}  history={} ",
+        app.active_connector,
         app.cfg.api_endpoints.len(),
         app.active.len(),
         app.queue.len(),
@@ -69,7 +70,7 @@ fn draw_body(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let hint = match app.mode {
-        Mode::Normal => " [n] new  [?] help  [↑↓] select  [x] cancel  [q] quit ",
+        Mode::Normal => " [n] new  [c] switch connector  [?] help  [↑↓] select  [x] cancel  [q] quit ",
         Mode::NewJob => " 새 작업: [Tab] 이동  [Enter] 추가  [Esc] 취소 ",
         Mode::Help => " [Esc] 닫기 ",
     };

@@ -5,28 +5,28 @@
 //! - 로그: 각 job 의 모든 stdout/stderr 라인 → log 채널
 
 use crate::config::Config;
+use crate::connectors::{claude::ClaudeConnector, deepl::DeeplConnector, gemma::GemmaConnector, BoxConnector, Registry};
 use crate::jobs::{sentry::SentryStep, translate::TranslateInput, Job, JobKind, JobStatus};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::sync::{mpsc, Mutex, Notify, RwLock};
 use tokio::task::JoinHandle;
 use uuid::Uuid;
-
-use super::translate::TranslateClient;
 
 pub struct WorkerHandle {
     pub log_rx: mpsc::UnboundedReceiver<String>,
     pub job_tx: mpsc::UnboundedSender<Job>,
-    /// 현재 실행중/대기중 job 스냅샷 (progress 는 매 틱 업데이트됨)
     pub state: Arc<Mutex<Vec<Job>>>,
     pub history: Arc<Mutex<Vec<Job>>>,
-    /// job id → 취소 토큰 (실행 중인 것만)
     pub cancel: Arc<Mutex<HashMap<Uuid, Arc<Notify>>>>,
+    /// 등록된 커넥터 목록 + 현재 활성화된 커넥터 이름 (스위치 가능)
+    pub registry: Arc<Registry>,
+    pub active_connector: Arc<RwLock<String>>,
     pub _task: JoinHandle<()>,
 }
 
@@ -40,6 +40,20 @@ impl WorkerHandle {
             false
         }
     }
+
+    /// 활성 커넥터를 런타임에 교체. 이미 실행중인 job 은 현 커넥터 유지.
+    pub async fn set_connector(&self, name: &str) -> bool {
+        if self.registry.get(name).is_some() {
+            *self.active_connector.write().await = name.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub async fn active_connector_name(&self) -> String {
+        self.active_connector.read().await.clone()
+    }
 }
 
 pub fn spawn_worker(cfg: Arc<Config>) -> WorkerHandle {
@@ -48,7 +62,24 @@ pub fn spawn_worker(cfg: Arc<Config>) -> WorkerHandle {
     let state = Arc::new(Mutex::new(Vec::<Job>::new()));
     let history = Arc::new(Mutex::new(Vec::<Job>::new()));
     let cancel: Arc<Mutex<HashMap<Uuid, Arc<Notify>>>> = Arc::new(Mutex::new(HashMap::new()));
-    let client = TranslateClient::new(cfg.api_endpoints.clone());
+
+    // 커넥터 등록
+    let mut registry = Registry::default();
+    registry.register("gemma",
+        Arc::new(GemmaConnector::new(cfg.api_endpoints.clone())) as BoxConnector);
+    if let Some(d) = cfg.connectors.deepl.as_ref() {
+        registry.register("deepl",
+            Arc::new(DeeplConnector::new(d.api_key.clone(), d.pro)) as BoxConnector);
+    }
+    if let Some(c) = cfg.connectors.claude.as_ref() {
+        registry.register("claude",
+            Arc::new(ClaudeConnector::new(c.api_key.clone(), c.model.clone())) as BoxConnector);
+    }
+    let registry = Arc::new(registry);
+    let active = cfg.connectors.default.clone();
+    // 존재하지 않는 기본값이면 gemma 로 fallback
+    let active = if registry.get(&active).is_some() { active } else { "gemma".into() };
+    let active_connector = Arc::new(RwLock::new(active));
 
     // 초기 로드
     {
@@ -64,6 +95,8 @@ pub fn spawn_worker(cfg: Arc<Config>) -> WorkerHandle {
     let state_c = state.clone();
     let history_c = history.clone();
     let cancel_c = cancel.clone();
+    let registry_c = registry.clone();
+    let active_c = active_connector.clone();
     let task = tokio::spawn(async move {
         while let Some(mut job) = job_rx.recv().await {
             job.status = JobStatus::Running;
@@ -74,7 +107,12 @@ pub fn spawn_worker(cfg: Arc<Config>) -> WorkerHandle {
             state_c.lock().await.push(job.clone());
             let _ = log_tx.send(format!("[{}] start: {}", short(job.id), job.kind.title()));
 
-            let result = run_job(&mut job, &cfg, &client, &log_tx, notify.clone(), &state_c).await;
+            let conn_name = active_c.read().await.clone();
+            let conn = registry_c.get(&conn_name).cloned().ok_or_else(|| anyhow!("no connector: {conn_name}"));
+            let result = match conn {
+                Ok(c) => run_job(&mut job, &cfg, &c, &log_tx, notify.clone(), &state_c).await,
+                Err(e) => Err(e),
+            };
             job.finished_at = Some(Utc::now());
             cancel_c.lock().await.remove(&job.id);
 
@@ -108,7 +146,11 @@ pub fn spawn_worker(cfg: Arc<Config>) -> WorkerHandle {
         }
     });
 
-    WorkerHandle { log_rx, job_tx, state, history, cancel, _task: task }
+    WorkerHandle {
+        log_rx, job_tx, state, history, cancel,
+        registry, active_connector,
+        _task: task,
+    }
 }
 
 fn short(id: Uuid) -> String {
@@ -119,7 +161,7 @@ fn short(id: Uuid) -> String {
 async fn run_job(
     job: &mut Job,
     cfg: &Config,
-    client: &TranslateClient,
+    connector: &BoxConnector,
     log: &mpsc::UnboundedSender<String>,
     cancel: Arc<Notify>,
     shared: &Arc<Mutex<Vec<Job>>>,
@@ -129,11 +171,11 @@ async fn run_job(
             TranslateInput::Text(text) => {
                 tokio::select! {
                     _ = cancel.notified() => Ok(false),
-                    r = client.translate(text, &t.source_lang, &t.target_lang, t.context.as_deref()) => {
+                    r = connector.translate(text, &t.source_lang, &t.target_lang, t.context.as_deref()) => {
                         let r = r?;
                         job.message = r.translation.clone();
                         update_progress(shared, job.id, 1.0).await;
-                        let _ = log.send(format!("  → {}", r.translation));
+                        let _ = log.send(format!("  [{}] → {}", connector.name(), r.translation));
                         Ok(true)
                     }
                 }
@@ -142,12 +184,12 @@ async fn run_job(
                 for (i, item) in items.iter().enumerate() {
                     tokio::select! {
                         _ = cancel.notified() => return Ok(false),
-                        r = client.translate(item, &t.source_lang, &t.target_lang, t.context.as_deref()) => {
+                        r = connector.translate(item, &t.source_lang, &t.target_lang, t.context.as_deref()) => {
                             let r = r?;
                             let p = (i as f32 + 1.0) / items.len() as f32;
                             job.progress = p;
                             update_progress(shared, job.id, p).await;
-                            let _ = log.send(format!("  [{}/{}] {} → {}", i + 1, items.len(), item, r.translation));
+                            let _ = log.send(format!("  [{}/{} {}] {} → {}", i + 1, items.len(), connector.name(), item, r.translation));
                         }
                     }
                 }

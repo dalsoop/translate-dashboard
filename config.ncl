@@ -39,4 +39,19 @@
     refresh_ms = 250,
     history_max = 100,
   },
+
+  # 번역 커넥터 (여러 개 등록해두고 런타임에 스위치)
+  connectors = {
+    default = "gemma",                 # gemma | deepl | claude
+
+    # 사용하려면 api_key 채우고 블록 유지, 안 쓰면 삭제
+    # deepl = {
+    #   api_key = "xxxx",
+    #   pro = false,
+    # },
+    # claude = {
+    #   api_key = "sk-ant-...",
+    #   model = "claude-opus-4-6",
+    # },
+  },
 }

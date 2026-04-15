@@ -16,7 +16,7 @@ use std::sync::Arc;
 use translate_dashboard::{
     app::{App, Mode, NewJobField, NewJobType},
     backend::gpu::{GpuSnapshot, GpuStat},
-    config::{Config, Defaults, GpuConfig, JobsConfig, SentryI18nConfig, TranslateJobConfig, UiConfig},
+    config::{Config, ConnectorsConfig, Defaults, GpuConfig, JobsConfig, SentryI18nConfig, TranslateJobConfig, UiConfig},
     jobs::{
         sentry::{SentryJob, SentryStep},
         translate::{TranslateInput, TranslateJob},
@@ -78,6 +78,7 @@ fn mock_cfg() -> Config {
             },
         },
         ui: UiConfig { refresh_ms: 250, history_max: 100 },
+        connectors: ConnectorsConfig::default(),
     }
 }
 

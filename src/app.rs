@@ -114,6 +114,8 @@ pub struct App {
     pub log: VecDeque<String>,
     pub selected_active: usize,
     pub should_quit: bool,
+    pub active_connector: String,
+    pub available_connectors: Vec<String>,
 }
 
 impl App {
@@ -131,6 +133,8 @@ impl App {
             log: VecDeque::new(),
             selected_active: 0,
             should_quit: false,
+            active_connector: "gemma".into(),
+            available_connectors: vec!["gemma".into()],
         }
     }
 

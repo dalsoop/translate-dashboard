@@ -10,7 +10,38 @@ pub struct Config {
     pub defaults: Defaults,
     pub jobs: JobsConfig,
     pub ui: UiConfig,
+    #[serde(default)]
+    pub connectors: ConnectorsConfig,
 }
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConnectorsConfig {
+    /// 현재 기본 커넥터 이름 ("gemma" | "deepl" | "claude" | ...)
+    #[serde(default = "default_connector")]
+    pub default: String,
+    #[serde(default)]
+    pub deepl: Option<DeeplConfig>,
+    #[serde(default)]
+    pub claude: Option<ClaudeConfig>,
+}
+
+fn default_connector() -> String { "gemma".into() }
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeeplConfig {
+    pub api_key: String,
+    #[serde(default)]
+    pub pro: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ClaudeConfig {
+    pub api_key: String,
+    #[serde(default = "default_claude_model")]
+    pub model: String,
+}
+
+fn default_claude_model() -> String { "claude-opus-4-6".into() }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GpuConfig {
