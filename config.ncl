@@ -1,0 +1,42 @@
+# translate-dashboard Nickel 설정
+{
+  # 백엔드 번역 API 엔드포인트 (round-robin)
+  api_endpoints = [
+    "http://10.0.60.108:8080",
+    "http://10.0.60.108:8081",
+    "http://10.0.60.108:8082",
+    "http://10.0.60.108:8083",
+  ],
+
+  # GPU 호스트 (nvidia-smi 폴링용 SSH)
+  gpu = {
+    host = "192.168.2.60",
+    gpu_ids = [0, 1, 2, 3],
+    poll_interval_s = 5,
+  },
+
+  # 번역 기본값
+  defaults = {
+    source_lang = "en",
+    target_lang = "ko",
+    workers = 32,
+    context = "concise UI text in Korean",
+  },
+
+  # Job 타입별 설정
+  jobs = {
+    translate = {
+      cli = "/usr/local/bin/phs-translate",
+    },
+    sentry_i18n = {
+      cli = "/usr/local/bin/phs-sentry-i18n",
+      state_path = "/opt/sentry-i18n/state.json",
+    },
+  },
+
+  # UI
+  ui = {
+    refresh_ms = 250,
+    history_max = 100,
+  },
+}
