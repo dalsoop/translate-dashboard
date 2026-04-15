@@ -35,12 +35,28 @@ impl Connector for GemmaConnector {
     }
 
     async fn health(&self) -> Result<String> {
-        // 첫 엔드포인트 health 만 확인
-        if let Some(ep) = self.client.endpoints().first() {
-            let h = self.client.health(ep).await?;
-            Ok(format!("{} vram={:.2}GB", if h.ok { "ok" } else { "down" }, h.vram_gb))
-        } else {
-            Ok("no endpoints".into())
+        use std::time::Duration;
+        let eps = self.client.endpoints().to_vec();
+        let total = eps.len();
+        // 병렬 spawn + timeout 3s
+        let mut handles = Vec::with_capacity(total);
+        for ep in eps {
+            let c = self.client.clone();
+            handles.push(tokio::spawn(async move {
+                tokio::time::timeout(Duration::from_secs(3), c.health(&ep)).await
+            }));
         }
+        let mut ok = 0usize;
+        let mut busy = 0usize;
+        let mut down = 0usize;
+        for h in handles {
+            match h.await {
+                Ok(Ok(Ok(hh))) if hh.ok => ok += 1,
+                Ok(Ok(_)) => down += 1,
+                Ok(Err(_)) => busy += 1,  // timeout
+                Err(_) => down += 1,       // join error
+            }
+        }
+        Ok(format!("{ok}/{total} ok · {busy} busy · {down} down"))
     }
 }
