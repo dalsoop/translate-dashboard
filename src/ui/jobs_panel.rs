@@ -10,18 +10,18 @@ use ratatui::{
 
 pub fn draw_active(f: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
-        .title(format!(" 실행/대기 중 작업 ({}) ", app.active.len() + app.queue.len()))
+        .title(format!(" 실행/대기 ({}) ", app.active.len() + app.queue.len()))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let mut rows: Vec<(String, JobStatus, f32)> = Vec::new();
-    for j in &app.active {
-        rows.push((j.kind.title(), j.status, j.progress));
+    let mut rows: Vec<(String, JobStatus, f32, bool)> = Vec::new();
+    for (i, j) in app.active.iter().enumerate() {
+        rows.push((j.kind.title(), j.status, j.progress, i == app.selected_active));
     }
     for j in &app.queue {
-        rows.push((j.kind.title(), j.status, j.progress));
+        rows.push((j.kind.title(), j.status, j.progress, false));
     }
 
     if rows.is_empty() {
@@ -32,7 +32,7 @@ pub fn draw_active(f: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    for (i, (title, st, prog)) in rows.iter().enumerate() {
+    for (i, (title, st, prog, selected)) in rows.iter().enumerate() {
         let y = inner.y + i as u16 * 2;
         if y + 1 >= inner.y + inner.height { break; }
         let label_rect = Rect { x: inner.x, y, width: inner.width, height: 1 };
@@ -43,9 +43,15 @@ pub fn draw_active(f: &mut Frame, area: Rect, app: &App) {
             JobStatus::Queued => Color::DarkGray,
             _ => Color::White,
         };
+        let mut label_style = Style::default().fg(color).add_modifier(Modifier::BOLD);
+        let mut title_style = Style::default();
+        if *selected {
+            label_style = label_style.bg(Color::DarkGray);
+            title_style = title_style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
+        }
         let line = Line::from(vec![
-            Span::styled(format!(" {} ", st.symbol()), Style::default().fg(color).add_modifier(Modifier::BOLD)),
-            Span::raw(title.clone()),
+            Span::styled(format!(" {} ", st.symbol()), label_style),
+            Span::styled(title.clone(), title_style),
         ]);
         f.render_widget(Paragraph::new(line), label_rect);
 
@@ -69,6 +75,7 @@ pub fn draw_history(f: &mut Frame, area: Rect, app: &App) {
         let st_color = match j.status {
             JobStatus::Done => Color::Green,
             JobStatus::Failed => Color::Red,
+            JobStatus::Cancelled => Color::Yellow,
             _ => Color::DarkGray,
         };
         let duration = match (j.started_at, j.finished_at) {

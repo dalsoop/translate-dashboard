@@ -1,9 +1,10 @@
 pub mod gpu_panel;
+pub mod help;
 pub mod jobs_panel;
 pub mod log_panel;
 pub mod new_job;
 
-use crate::app::{App, Focus, Mode};
+use crate::app::{App, Mode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -22,16 +23,20 @@ pub fn draw(f: &mut Frame, app: &App) {
     draw_body(f, chunks[1], app);
     draw_footer(f, chunks[2], app);
 
-    if matches!(app.mode, Mode::NewJob) {
-        new_job::draw(f, size, app);
+    match app.mode {
+        Mode::NewJob => new_job::draw(f, size, app),
+        Mode::Help => help::draw(f, size, app),
+        Mode::Normal => {}
     }
 }
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
     let title = format!(
-        " translate-dashboard │ endpoints={}  focus={:?}  ",
+        " translate-dashboard │ endpoints={}  active={}  queue={}  history={} ",
         app.cfg.api_endpoints.len(),
-        app.focus
+        app.active.len(),
+        app.queue.len(),
+        app.history.len(),
     );
     let p = Paragraph::new(title).style(
         Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
@@ -64,12 +69,11 @@ fn draw_body(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let hint = match app.mode {
-        Mode::Normal => " [n] new job │ [Tab] focus │ [q] quit │ [↑↓] scroll ",
-        Mode::NewJob => " 새 작업: [Tab] 필드 이동 │ [Enter] 큐에 추가 │ [Esc] 취소 ",
+        Mode::Normal => " [n] new  [?] help  [↑↓] select  [x] cancel  [q] quit ",
+        Mode::NewJob => " 새 작업: [Tab] 이동  [Enter] 추가  [Esc] 취소 ",
+        Mode::Help => " [Esc] 닫기 ",
     };
     let p = Paragraph::new(hint)
         .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded));
     f.render_widget(p, area);
-    let _ = app.focus; // silence unused warning when Focus variants change
-    let _ = Focus::Gpu;
 }

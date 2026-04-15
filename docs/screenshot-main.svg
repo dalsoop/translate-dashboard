@@ -120,6 +120,49 @@
 <rect x="1053" y="0" width="9" height="18" fill="#56b6c2"/>
 <rect x="1062" y="0" width="9" height="18" fill="#56b6c2"/>
 <rect x="1071" y="0" width="9" height="18" fill="#56b6c2"/>
+<rect x="441" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="450" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="459" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="468" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="477" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="486" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="495" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="504" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="513" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="522" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="531" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="540" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="549" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="558" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="567" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="576" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="585" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="594" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="603" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="612" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="621" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="630" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="639" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="648" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="657" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="666" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="675" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="684" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="693" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="702" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="711" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="720" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="729" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="738" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="747" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="756" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="765" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="774" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="783" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="792" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="801" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="810" y="36" width="9" height="18" fill="#5c6370"/>
+<rect x="819" y="36" width="9" height="18" fill="#5c6370"/>
 <rect x="9" y="54" width="9" height="18" fill="#5c6370"/>
 <rect x="18" y="54" width="9" height="18" fill="#5c6370"/>
 <rect x="27" y="54" width="9" height="18" fill="#5c6370"/>
@@ -514,8 +557,8 @@
 <rect x="396" y="162" width="9" height="18" fill="#5c6370"/>
 <rect x="405" y="162" width="9" height="18" fill="#5c6370"/>
 <rect x="414" y="162" width="9" height="18" fill="#5c6370"/>
-<text x="0" y="14" fill="#1e1e1e" xml:space="preserve"> translate-dashboard │ endpoints=4  focus=Jobs                                                                          </text>
-<text x="0" y="32" fill="#d4d4d4" xml:space="preserve">╭ GPU ─────────────────────────────────────────╮╭ 실 행 /대 기  중  작 업  (3) ───────────────────────────────────────────────╮</text>
+<text x="0" y="14" fill="#1e1e1e" xml:space="preserve"> translate-dashboard │ endpoints=4  active=2  queue=1  history=3                                                        </text>
+<text x="0" y="32" fill="#d4d4d4" xml:space="preserve">╭ GPU ─────────────────────────────────────────╮╭ 실 행 /대 기  (3) ───────────────────────────────────────────────────────╮</text>
 <text x="0" y="50" fill="#d4d4d4" xml:space="preserve">│</text>
 <text x="9" y="50" fill="#e5c07b" xml:space="preserve">GPU0 </text>
 <text x="54" y="50" fill="#d4d4d4" xml:space="preserve"> 42%  17410/24576 MiB  68°C              ││</text>
@@ -610,6 +653,6 @@
 <text x="0" y="572" fill="#d4d4d4" xml:space="preserve">│                                              ││                                                                      │</text>
 <text x="0" y="590" fill="#d4d4d4" xml:space="preserve">╰──────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────╯</text>
 <text x="0" y="608" fill="#d4d4d4" xml:space="preserve">╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮</text>
-<text x="0" y="626" fill="#d4d4d4" xml:space="preserve">│ [n] new job │ [Tab] focus │ [q] quit │ [↑↓] scroll                                                                   │</text>
+<text x="0" y="626" fill="#d4d4d4" xml:space="preserve">│ [n] new  [?] help  [↑↓] select  [x] cancel  [q] quit                                                                 │</text>
 <text x="0" y="644" fill="#d4d4d4" xml:space="preserve">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
 </svg>

@@ -1,4 +1,4 @@
-use translate_dashboard::app::{self, App, Mode, NewJobField, NewJobType};
+use translate_dashboard::app::{App, Focus, Mode, NewJobField, NewJobType};
 use translate_dashboard::backend::{self, gpu, worker};
 use translate_dashboard::config::Config;
 use translate_dashboard::jobs::sentry::SentryStep;
@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
+use tui_input::backend::crossterm::EventHandler;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -63,15 +64,12 @@ async fn run_app<B: ratatui::backend::Backend>(
     let mut app = App::new(cfg.clone());
     let tick = Duration::from_millis(cfg.ui.refresh_ms);
     loop {
-        // sync gpu snapshot
         if gpu_rx.has_changed().unwrap_or(false) {
             app.gpu = gpu_rx.borrow_and_update().clone();
         }
-        // drain logs
         while let Ok(line) = worker.log_rx.try_recv() {
             app.push_log(line);
         }
-        // sync active jobs from worker state
         {
             let active = worker.state.lock().await;
             app.active = active.clone();
@@ -80,12 +78,15 @@ async fn run_app<B: ratatui::backend::Backend>(
             let hist = worker.history.lock().await;
             app.history = hist.clone();
         }
+        if app.selected_active >= app.active.len() && !app.active.is_empty() {
+            app.selected_active = app.active.len() - 1;
+        }
 
         terminal.draw(|f| ui::draw(f, &app))?;
 
         if event::poll(tick)? {
             if let Event::Key(key) = event::read()? {
-                handle_key(&mut app, key, worker);
+                handle_key(&mut app, key, worker).await;
                 if app.should_quit { break; }
             }
         }
@@ -93,84 +94,107 @@ async fn run_app<B: ratatui::backend::Backend>(
     Ok(())
 }
 
-fn handle_key(app: &mut App, key: KeyEvent, worker: &worker::WorkerHandle) {
+async fn handle_key(app: &mut App, key: KeyEvent, worker: &worker::WorkerHandle) {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         app.should_quit = true;
         return;
     }
     match app.mode {
-        Mode::Normal => match key.code {
-            KeyCode::Char('q') => app.should_quit = true,
-            KeyCode::Char('n') => app.mode = Mode::NewJob,
-            KeyCode::Tab => {
-                app.focus = match app.focus {
-                    app::Focus::Gpu => app::Focus::Jobs,
-                    app::Focus::Jobs => app::Focus::History,
-                    app::Focus::History => app::Focus::Log,
-                    app::Focus::Log => app::Focus::Gpu,
-                };
-            }
-            _ => {}
-        },
+        Mode::Normal => handle_normal(app, key, worker).await,
         Mode::NewJob => handle_new_job_key(app, key, worker),
+        Mode::Help => {
+            if matches!(key.code, KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')) {
+                app.mode = Mode::Normal;
+            }
+        }
+    }
+}
+
+async fn handle_normal(app: &mut App, key: KeyEvent, worker: &worker::WorkerHandle) {
+    match key.code {
+        KeyCode::Char('q') => app.should_quit = true,
+        KeyCode::Char('n') => app.mode = Mode::NewJob,
+        KeyCode::Char('?') => app.mode = Mode::Help,
+        KeyCode::Up => {
+            if app.selected_active > 0 { app.selected_active -= 1; }
+        }
+        KeyCode::Down => {
+            if !app.active.is_empty() && app.selected_active + 1 < app.active.len() {
+                app.selected_active += 1;
+            }
+        }
+        KeyCode::Char('x') => {
+            if let Some(j) = app.active.get(app.selected_active) {
+                let id = j.id;
+                let _ = worker.cancel_job(id).await;
+                app.push_log(format!("cancel signal → {}", &id.to_string()[..8]));
+            }
+        }
+        KeyCode::Tab => {
+            app.focus = match app.focus {
+                Focus::Gpu => Focus::Jobs,
+                Focus::Jobs => Focus::History,
+                Focus::History => Focus::Log,
+                Focus::Log => Focus::Gpu,
+            };
+        }
+        _ => {}
     }
 }
 
 fn handle_new_job_key(app: &mut App, key: KeyEvent, worker: &worker::WorkerHandle) {
-    match (app.new_job.focus, key.code) {
-        (_, KeyCode::Esc) => app.mode = Mode::Normal,
-        (_, KeyCode::Tab) => app.new_job.next_field(),
-        (_, KeyCode::Enter) => {
+    // 글로벌 키 (편집 가능 필드여도 우선 처리)
+    match key.code {
+        KeyCode::Esc => { app.mode = Mode::Normal; return; }
+        KeyCode::Tab => {
+            if key.modifiers.contains(KeyModifiers::SHIFT) {
+                app.new_job.prev_field();
+            } else {
+                app.new_job.next_field();
+            }
+            return;
+        }
+        KeyCode::BackTab => { app.new_job.prev_field(); return; }
+        KeyCode::Enter => {
             if let Some(job) = app.new_job.to_job() {
                 let _ = worker.job_tx.send(job);
                 app.mode = Mode::Normal;
             }
+            return;
         }
-        (NewJobField::Type, KeyCode::Char('<') | KeyCode::Left) |
-        (NewJobField::Type, KeyCode::Char('>') | KeyCode::Right) => {
+        _ => {}
+    }
+
+    // 선택 필드 (편집 불가)
+    match (app.new_job.focus, app.new_job.job_type, key.code) {
+        (NewJobField::Type, _, KeyCode::Char('<') | KeyCode::Left) |
+        (NewJobField::Type, _, KeyCode::Char('>') | KeyCode::Right) => {
             app.new_job.job_type = match app.new_job.job_type {
                 NewJobType::Translate => NewJobType::Sentry,
                 NewJobType::Sentry => NewJobType::Translate,
             };
+            return;
         }
-        (NewJobField::Src, KeyCode::Backspace) => { app.new_job.src_lang.pop(); }
-        (NewJobField::Src, KeyCode::Char(c)) if c.is_ascii_alphanumeric() || c == '-' => {
-            app.new_job.src_lang.push(c);
+        (NewJobField::Main, NewJobType::Sentry, KeyCode::Char(c)) if matches!(c, '1'..='6') => {
+            app.new_job.sentry_step = match c {
+                '1' => SentryStep::Extract,
+                '2' => SentryStep::Scan,
+                '3' => SentryStep::Translate,
+                '4' => SentryStep::Build,
+                '5' => SentryStep::Deploy,
+                _   => SentryStep::Sync,
+            };
+            return;
         }
-        (NewJobField::Tgt, KeyCode::Backspace) => { app.new_job.tgt_lang.pop(); }
-        (NewJobField::Tgt, KeyCode::Char(c)) if c.is_ascii_alphanumeric() || c == '-' => {
-            app.new_job.tgt_lang.push(c);
+        (NewJobField::Extra, NewJobType::Sentry, KeyCode::Char('b')) => {
+            app.new_job.cache_bust = !app.new_job.cache_bust;
+            return;
         }
-        (NewJobField::Main, KeyCode::Backspace) => {
-            match app.new_job.job_type {
-                NewJobType::Translate => { app.new_job.text.pop(); }
-                NewJobType::Sentry => {}
-            }
-        }
-        (NewJobField::Main, KeyCode::Char(c)) => match app.new_job.job_type {
-            NewJobType::Translate => app.new_job.text.push(c),
-            NewJobType::Sentry => {
-                app.new_job.sentry_step = match c {
-                    '1' => SentryStep::Extract,
-                    '2' => SentryStep::Scan,
-                    '3' => SentryStep::Translate,
-                    '4' => SentryStep::Build,
-                    '5' => SentryStep::Deploy,
-                    '6' => SentryStep::Sync,
-                    _ => app.new_job.sentry_step,
-                };
-            }
-        },
-        (NewJobField::Extra, KeyCode::Backspace) => match app.new_job.job_type {
-            NewJobType::Translate => { app.new_job.context.pop(); }
-            NewJobType::Sentry => { app.new_job.cache_bust = !app.new_job.cache_bust; }
-        },
-        (NewJobField::Extra, KeyCode::Char(c)) => match app.new_job.job_type {
-            NewJobType::Translate => app.new_job.context.push(c),
-            NewJobType::Sentry => {
-                if c == 'b' { app.new_job.cache_bust = !app.new_job.cache_bust; }
-            }
-        },
         _ => {}
+    }
+
+    // 나머지는 편집 가능 필드로 라우팅
+    if let Some(input) = app.new_job.editable_input() {
+        input.handle_event(&Event::Key(key));
     }
 }

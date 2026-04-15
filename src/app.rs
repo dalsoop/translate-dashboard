@@ -3,9 +3,10 @@ use crate::config::Config;
 use crate::jobs::{sentry::{SentryJob, SentryStep}, translate::{TranslateInput, TranslateJob}, Job, JobKind};
 use std::collections::VecDeque;
 use std::sync::Arc;
+use tui_input::Input;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode { Normal, NewJob }
+pub enum Mode { Normal, NewJob, Help }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Focus { Gpu, Jobs, History, Log }
@@ -19,10 +20,10 @@ pub enum NewJobField { Type, Src, Tgt, Main, Extra }
 pub struct NewJobForm {
     pub focus: NewJobField,
     pub job_type: NewJobType,
-    pub src_lang: String,
-    pub tgt_lang: String,
-    pub text: String,
-    pub context: String,
+    pub src_lang: Input,
+    pub tgt_lang: Input,
+    pub text: Input,
+    pub context: Input,
     pub sentry_step: SentryStep,
     pub cache_bust: bool,
 }
@@ -32,10 +33,10 @@ impl NewJobForm {
         Self {
             focus: NewJobField::Type,
             job_type: NewJobType::Translate,
-            src_lang: cfg.defaults.source_lang.clone(),
-            tgt_lang: cfg.defaults.target_lang.clone(),
-            text: String::new(),
-            context: cfg.defaults.context.clone(),
+            src_lang: Input::from(cfg.defaults.source_lang.clone()),
+            tgt_lang: Input::from(cfg.defaults.target_lang.clone()),
+            text: Input::default(),
+            context: Input::from(cfg.defaults.context.clone()),
             sentry_step: SentryStep::Sync,
             cache_bust: true,
         }
@@ -51,19 +52,42 @@ impl NewJobForm {
         };
     }
 
+    pub fn prev_field(&mut self) {
+        self.focus = match self.focus {
+            NewJobField::Type => NewJobField::Extra,
+            NewJobField::Src => NewJobField::Type,
+            NewJobField::Tgt => NewJobField::Src,
+            NewJobField::Main => NewJobField::Tgt,
+            NewJobField::Extra => NewJobField::Main,
+        };
+    }
+
+    /// 현재 편집 가능한 필드의 tui-input 참조 (편집 대상이 아닌 필드는 None)
+    pub fn editable_input(&mut self) -> Option<&mut Input> {
+        match (self.focus, self.job_type) {
+            (NewJobField::Src, _) => Some(&mut self.src_lang),
+            (NewJobField::Tgt, _) => Some(&mut self.tgt_lang),
+            (NewJobField::Main, NewJobType::Translate) => Some(&mut self.text),
+            (NewJobField::Extra, NewJobType::Translate) => Some(&mut self.context),
+            _ => None,
+        }
+    }
+
     pub fn to_job(&self) -> Option<Job> {
         match self.job_type {
             NewJobType::Translate => {
-                if self.text.trim().is_empty() { return None; }
-                let input = if std::path::Path::new(&self.text).exists() {
-                    TranslateInput::File { path: self.text.clone(), out: None }
+                let text = self.text.value().to_string();
+                if text.trim().is_empty() { return None; }
+                let input = if std::path::Path::new(&text).exists() {
+                    TranslateInput::File { path: text.clone(), out: None }
                 } else {
-                    TranslateInput::Text(self.text.clone())
+                    TranslateInput::Text(text)
                 };
+                let ctx = self.context.value().trim().to_string();
                 Some(Job::new(JobKind::Translate(TranslateJob {
-                    source_lang: self.src_lang.clone(),
-                    target_lang: self.tgt_lang.clone(),
-                    context: if self.context.is_empty() { None } else { Some(self.context.clone()) },
+                    source_lang: self.src_lang.value().to_string(),
+                    target_lang: self.tgt_lang.value().to_string(),
+                    context: if ctx.is_empty() { None } else { Some(ctx) },
                     input,
                 })))
             }
@@ -88,6 +112,7 @@ pub struct App {
     pub queue: VecDeque<Job>,
     pub history: Vec<Job>,
     pub log: VecDeque<String>,
+    pub selected_active: usize,
     pub should_quit: bool,
 }
 
@@ -104,6 +129,7 @@ impl App {
             queue: VecDeque::new(),
             history: Vec::new(),
             log: VecDeque::new(),
+            selected_active: 0,
             should_quit: false,
         }
     }
