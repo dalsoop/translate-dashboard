@@ -1,13 +1,8 @@
-mod app;
-mod backend;
-mod config;
-mod jobs;
-mod ui;
-
-use crate::app::{App, Mode, NewJobField, NewJobType};
-use crate::backend::{gpu, worker};
-use crate::config::Config;
-use crate::jobs::sentry::SentryStep;
+use translate_dashboard::app::{self, App, Mode, NewJobField, NewJobType};
+use translate_dashboard::backend::{self, gpu, worker};
+use translate_dashboard::config::Config;
+use translate_dashboard::jobs::sentry::SentryStep;
+use translate_dashboard::ui;
 use anyhow::{Context, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers},
