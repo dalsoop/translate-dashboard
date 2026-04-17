@@ -3,6 +3,7 @@ pub mod help;
 pub mod jobs_panel;
 pub mod log_panel;
 pub mod new_job;
+pub mod status_bar;
 
 use crate::app::{App, Mode};
 use ratatui::{
@@ -32,7 +33,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
     let title = format!(
-        " translate-dashboard │ connector=[{}]  endpoints={}  active={}  queue={}  history={} ",
+        " translate-dashboard │ [{}] {}ep  active={}  queue={}  history={} ",
         app.active_connector,
         app.cfg.api_endpoints.len(),
         app.active.len(),
@@ -53,7 +54,7 @@ fn draw_body(f: &mut Frame, area: Rect, app: &App) {
 
     let left = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(10), Constraint::Min(5)])
+        .constraints([Constraint::Length(11), Constraint::Min(5)])
         .split(main[0]);
 
     gpu_panel::draw(f, left[0], app);
@@ -70,7 +71,7 @@ fn draw_body(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let hint = match app.mode {
-        Mode::Normal => " [n] new  [c] switch connector  [?] help  [↑↓] select  [x] cancel  [q] quit ",
+        Mode::Normal => " [n] new  [c] connector  [b] bench  [?] help  [↑↓] select  [x] cancel  [q] quit ",
         Mode::NewJob => " 새 작업: [Tab] 이동  [Enter] 추가  [Esc] 취소 ",
         Mode::Help => " [Esc] 닫기 ",
     };

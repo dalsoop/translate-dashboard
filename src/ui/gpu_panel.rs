@@ -8,8 +8,9 @@ use ratatui::{
 };
 
 pub fn draw(f: &mut Frame, area: Rect, app: &App) {
+    let ep_count = app.cfg.api_endpoints.len();
     let block = Block::default()
-        .title(" GPU ")
+        .title(format!(" GPU ({} endpoints) ", ep_count))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded);
     let inner = block.inner(area);
@@ -29,11 +30,28 @@ pub fn draw(f: &mut Frame, area: Rect, app: &App) {
         let label_rect = Rect { x: inner.x, y, width: inner.width, height: 1 };
         let gauge_rect = Rect { x: inner.x, y: y + 1, width: inner.width, height: 1 };
 
+        // endpoint 매핑 표시 (포트 8080+i)
+        let port_hint = if (i as usize) < ep_count {
+            let ep = &app.cfg.api_endpoints[i as usize];
+            let port = ep.rsplit(':').next().unwrap_or("?");
+            format!(" :{port}")
+        } else {
+            String::new()
+        };
+
         let label = Line::from(vec![
-            Span::styled(format!("GPU{} ", g.index), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("GPU{}{} ", g.index, port_hint),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ),
             Span::raw(format!("{:>3}%  ", g.util_pct)),
             Span::raw(format!("{:>5}/{} MiB  ", g.mem_used_mib, g.mem_total_mib)),
-            Span::raw(format!("{}°C", g.temp_c)),
+            Span::styled(
+                format!("{}°C", g.temp_c),
+                Style::default().fg(if g.temp_c > 80 { Color::Red }
+                    else if g.temp_c > 65 { Color::Yellow }
+                    else { Color::Green }),
+            ),
         ]);
         f.render_widget(Paragraph::new(label), label_rect);
 
@@ -46,7 +64,7 @@ pub fn draw(f: &mut Frame, area: Rect, app: &App) {
         let gauge = Gauge::default()
             .gauge_style(Style::default().fg(color).bg(Color::DarkGray))
             .ratio(mem_ratio.min(1.0).max(0.0))
-            .label(format!("mem {:>3.0}% util {}%", mem_ratio * 100.0, g.util_pct));
+            .label(format!("mem {:>3.0}%  util {}%", mem_ratio * 100.0, g.util_pct));
         f.render_widget(gauge, gauge_rect);
     }
 }

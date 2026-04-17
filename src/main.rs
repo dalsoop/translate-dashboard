@@ -144,6 +144,33 @@ async fn handle_normal(app: &mut App, key: KeyEvent, worker: &worker::WorkerHand
                 }
             }
         }
+        KeyCode::Char('b') => {
+            // 간이 벤치마크: 10건 전송 → 소요 시간 로그
+            app.push_log("benchmark: 10건 전송 중…".into());
+            let connector = {
+                let name = worker.active_connector_name().await;
+                worker.registry.get(&name).cloned()
+            };
+            if let Some(c) = connector {
+                let c = c.clone();
+                let t0 = std::time::Instant::now();
+                let mut ok = 0u32;
+                let mut fail = 0u32;
+                for i in 0..10 {
+                    match c.translate(
+                        &format!("Benchmark test {i}"), "en", "ko", None
+                    ).await {
+                        Ok(_) => ok += 1,
+                        Err(_) => fail += 1,
+                    }
+                }
+                let elapsed = t0.elapsed().as_secs_f32();
+                let rps = 10.0 / elapsed;
+                app.push_log(format!(
+                    "benchmark: {ok}/10 ok, {fail} fail, {elapsed:.1}s ({rps:.1} req/s)"
+                ));
+            }
+        }
         KeyCode::Tab => {
             app.focus = match app.focus {
                 Focus::Gpu => Focus::Jobs,
